@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control Remoto Sony Genezi (IR / Wi-Fi)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 50% 15%, #1e2430 0%, #0b0d12 75%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .remote-chassis {
+      background: linear-gradient(165deg, #252830 0%, #17191f 45%, #111318 100%);
+      box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.85),
+        inset 0 1px 1px rgba(255, 255, 255, 0.12),
+        inset 0 -2px 6px rgba(0, 0, 0, 0.8);
+      border: 1px solid #2e333d;
+    }
+
+    .vfd-screen {
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(180deg, #050a0e 0%, #09131a 100%);
+      box-shadow:
+        inset 0 2px 10px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+      border: 1px solid #1e293b;
+    }
+
+    .vfd-glow-cyan {
+      color: #38bdf8;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.55);
+    }
+
+    .vfd-glow-amber {
+      color: #fbbf24;
+      text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+    }
+
+    .vfd-glow-red {
+      color: #f87171;
+      text-shadow: 0 0 8px rgba(248, 113, 113, 0.55);
+    }
+
+    .btn-remote {
+      background: linear-gradient(180deg, #2c303a 0%, #1f2229 100%);
+      box-shadow:
+        0 3px 0 #0d0f13,
+        0 4px 6px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      border: 1px solid #383d4a;
+      transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.12s ease;
+      user-select: none;
+    }
+
+    .btn-remote:active,
+    .btn-remote.is-pressed {
+      transform: translateY(2px);
+      box-shadow:
+        0 1px 0 #0d0f13,
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        inset 0 1px 2px rgba(0, 0, 0, 0.4);
+      background: linear-gradient(180deg, #232730 0%, #1a1c22 100%);
+    }
+
+    .btn-power {
+      background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+      box-shadow:
+        0 3px 0 #450a0a,
+        0 4px 8px rgba(220, 38, 38, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      border: 1px solid #ef4444;
+    }
+
+    .btn-power:active,
+    .btn-power.is-pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #450a0a;
+    }
+
+    .btn-power.is-on {
+      background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+      box-shadow:
+        0 3px 0 #052e16,
+        0 4px 10px rgba(34, 197, 94, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      border: 1px solid #22c55e;
+    }
+
+    .btn-accent {
+      background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+      border: 1px solid #475569;
+    }
+
+    .btn-play {
+      background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
+      box-shadow:
+        0 3px 0 #082f49,
+        0 4px 10px rgba(2, 132, 199, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      border: 1px solid #38bdf8;
+    }
+
+    .btn-play:active,
+    .btn-play.is-pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #082f49;
+    }
+
+    .ir-emitter {
+      transition: all 0.08s ease;
+    }
+
+    .ir-emitter.firing-ir {
+      background-color: #f43f5e;
+      box-shadow: 0 0 14px 4px rgba(244, 63, 94, 0.85);
+    }
+
+    .ir-emitter.firing-wifi {
+      background-color: #38bdf8;
+      box-shadow: 0 0 14px 4px rgba(56, 189, 248, 0.85);
+    }
+
+    .active-source-btn {
+      border-color: #38bdf8 !important;
+      color: #38bdf8 !important;
+      box-shadow: 0 3px 0 #0d0f13, 0 0 10px rgba(56, 189, 248, 0.25) !important;
+    }
+  </style>
+</head>
+<body class="py-4 px-3 sm:py-6 flex flex-col items-center justify-start">
+
+  <div class="w-full max-w-md mx-auto">
+    <!-- Remote Chassis -->
+    <div class="remote-chassis rounded-[2rem] p-4 sm:p-5 relative overflow-hidden">
+
+      <!-- Top IR Blaster LED & Brand Bar -->
+      <div class="flex items-center justify-between mb-3 px-1">
+        <div class="flex items-center gap-2">
+          <div id="ir-led" class="ir-emitter w-3 h-3 rounded-full bg-slate-700 border border-slate-600" title="Emisor de señal"></div>
+          <span class="text-[11px] font-semibold tracking-widest uppercase text-slate-400">SONY</span>
+          <span class="text-[10px] font-mono text-slate-500">GENEZI · RM-AMU006</span>
+        </div>
+
+        <!-- IR / Wi-Fi Mode Switch -->
+        <div class="flex items-center bg-slate-900/90 p-0.5 rounded-full border border-slate-700/80" role="group" aria-label="Modo de conexión">
+          <button id="mode-ir-btn" type="button"
+            class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all bg-rose-600 text-white shadow-sm">
+            IR
+          </button>
+          <button id="mode-wifi-btn" type="button"
+            class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all text-slate-400 hover:text-slate-200">
+            Wi-Fi
+          </button>
+        </div>
+      </div>
+
+      <!-- VFD Display (Sony Genezi Style) -->
+      <div class="vfd-screen rounded-xl p-3 mb-4">
+        <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+          <div class="flex items-center gap-2">
+            <span id="vfd-conn-badge" class="px-1.5 py-0.5 rounded bg-rose-950/70 text-rose-300 border border-rose-800/50 font-semibold">IR BLASTER</span>
+            <span id="vfd-tray-badge" class="hidden px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-700/50 font-semibold">BANDEJA ABIERTA</span>
+          </div>
+          <span id="vfd-eq-badge" class="text-sky-400/90">EQ: ROCK</span>
+        </div>
+
+        <div class="flex items-baseline justify-between my-1">
+          <div id="vfd-main" class="text-lg sm:text-xl font-bold tracking-wider vfd-glow-cyan truncate">
+            TUNER FM 97.7
+          </div>
+          <div id="vfd-vol" class="text-sm font-bold vfd-glow-amber ml-2 shrink-0">
+            VOL 18
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/80 pt-1.5 mt-1.5">
+          <span id="vfd-sub" class="truncate">LISTO · MHC-GTX88</span>
+          <span id="vfd-status-icons" class="flex items-center gap-2 shrink-0 font-semibold">
+            <span id="icon-groove" class="text-amber-400">GROOVE</span>
+            <span id="icon-sleep" class="text-slate-600">SLEEP</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Row 1: Power, Open/Close (Bandeja), Sleep, Display -->
+      <div class="grid grid-cols-4 gap-2 mb-3">
+        <button type="button" data-cmd="POWER" data-code="0x15"
+          class="btn-power is-on rounded-xl py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+          </svg>
+          <span class="text-[10px] font-bold tracking-wide">POWER</span>
+        </button>
+
+        <button type="button" data-cmd="OPEN_CLOSE" data-code="0x16"
+          class="btn-remote btn-accent rounded-xl py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-amber-300">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5l7 7H5l7-7zm-7 11h14v2H5v-2z" />
+          </svg>
+          <span class="text-[10px] font-bold tracking-wide">OPEN</span>
+        </button>
+
+        <button type="button" data-cmd="SLEEP" data-code="0x36"
+          class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-slate-200">
+          <span class="text-xs font-bold">🌙</span>
+          <span class="text-[10px] font-semibold">SLEEP</span>
+        </button>
+
+        <button type="button" data-cmd="DISPLAY" data-code="0x3A"
+          class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-slate-200">
+          <span class="text-xs font-bold">ⓘ</span>
+          <span class="text-[10px] font-semibold">DISPLAY</span>
+        </button>
+      </div>
+
+      <!-- Row 2: Direct Source Selectors (All Visible) -->
+      <div class="mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+          Entradas y Modos Directos
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <button type="button" id="src-tuner" data-cmd="TUNER_BAND" data-code="0x2B"
+            class="btn-remote active-source-btn rounded-xl py-2.5 px-1 text-center text-[11px] font-bold text-slate-200">
+            TUNER
+            <span class="block text-[9px] font-normal text-slate-400">FM / AM</span>
+          </button>
+          <button type="button" id="src-audio" data-cmd="AUDIO_IN" data-code="0x2C"
+            class="btn-remote rounded-xl py-2.5 px-1 text-center text-[11px] font-bold text-slate-200">
+            AUDIO
+            <span class="block text-[9px] font-normal text-slate-400">AUX IN</span>
+          </button>
+          <button type="button" id="src-cd" data-cmd="CD" data-code="0x28"
+            class="btn-remote rounded-xl py-2.5 px-1 text-center text-[11px] font-bold text-slate-200">
+            CD
+            <span class="block text-[9px] font-normal text-slate-400">DISCOS</span>
+          </button>
+          <button type="button" id="src-usb" data-cmd="USB" data-code="0x2E"
+            class="btn-remote rounded-xl py-2.5 px-1 text-center text-[11px] font-bold text-slate-200">
+            USB
+            <span class="block text-[9px] font-normal text-slate-400">MP3</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 3: Disc 1-3 & Disc Skip -->
+      <div class="grid grid-cols-4 gap-2 mb-3">
+        <button type="button" data-cmd="DISC_1" data-code="0x01"
+          class="btn-remote rounded-lg py-1.5 text-[11px] font-semibold text-slate-300">
+          DISC 1
+        </button>
+        <button type="button" data-cmd="DISC_2" data-code="0x02"
+          class="btn-remote rounded-lg py-1.5 text-[11px] font-semibold text-slate-300">
+          DISC 2
+        </button>
+        <button type="button" data-cmd="DISC_3" data-code="0x03"
+          class="btn-remote rounded-lg py-1.5 text-[11px] font-semibold text-slate-300">
+          DISC 3
+        </button>
+        <button type="button" data-cmd="DISC_SKIP" data-code="0x3E"
+          class="btn-remote rounded-lg py-1.5 text-[11px] font-semibold text-amber-300">
+          D. SKIP
+        </button>
+      </div>
+
+      <!-- Row 4: Playback & Tuner Controls -->
+      <div class="bg-slate-900/50 rounded-2xl p-2.5 border border-slate-800/80 mb-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
+          Reproducción y Sintonizador
+        </div>
+
+        <!-- Transport Row: Prev, Play, Pause, Next -->
+        <div class="grid grid-cols-4 gap-2 mb-2">
+          <button type="button" data-cmd="PREV" data-code="0x30"
+            class="btn-remote rounded-xl py-2.5 flex flex-col items-center justify-center text-slate-200">
+            <span class="text-sm leading-none">⏮</span>
+            <span class="text-[9px] mt-1 font-medium">ANT</span>
+          </button>
+
+          <button type="button" data-cmd="PLAY" data-code="0x32"
+            class="btn-play rounded-xl py-2.5 flex flex-col items-center justify-center text-white">
+            <span class="text-sm leading-none">▶</span>
+            <span class="text-[9px] mt-1 font-bold">PLAY</span>
+          </button>
+
+          <button type="button" data-cmd="PAUSE" data-code="0x39"
+            class="btn-remote rounded-xl py-2.5 flex flex-col items-center justify-center text-slate-200">
+            <span class="text-sm leading-none">⏸</span>
+            <span class="text-[9px] mt-1 font-medium">PAUSA</span>
+          </button>
+
+          <button type="button" data-cmd="NEXT" data-code="0x31"
+            class="btn-remote rounded-xl py-2.5 flex flex-col items-center justify-center text-slate-200">
+            <span class="text-sm leading-none">⏭</span>
+            <span class="text-[9px] mt-1 font-medium">SIG</span>
+          </button>
+        </div>
+
+        <!-- Secondary Transport + Stop + Tuning -->
+        <div class="grid grid-cols-5 gap-1.5 mb-2">
+          <button type="button" data-cmd="REW" data-code="0x33"
+            class="btn-remote rounded-lg py-2 flex flex-col items-center justify-center text-slate-300">
+            <span class="text-xs leading-none">⏪</span>
+            <span class="text-[9px] mt-0.5">REW</span>
+          </button>
+          <button type="button" data-cmd="STOP" data-code="0x38"
+            class="btn-remote rounded-lg py-2 flex flex-col items-center justify-center text-rose-300">
+            <span class="text-xs leading-none">■</span>
+            <span class="text-[9px] mt-0.5 font-semibold">STOP</span>
+          </button>
+          <button type="button" data-cmd="FF" data-code="0x34"
+            class="btn-remote rounded-lg py-2 flex flex-col items-center justify-center text-slate-300">
+            <span class="text-xs leading-none">⏩</span>
+            <span class="text-[9px] mt-0.5">FF</span>
+          </button>
+          <button type="button" data-cmd="TUNING_DOWN" data-code="0x0A"
+            class="btn-remote rounded-lg py-2 flex flex-col items-center justify-center text-sky-300">
+            <span class="text-xs font-bold leading-none">−</span>
+            <span class="text-[9px] mt-0.5">TUNING</span>
+          </button>
+          <button type="button" data-cmd="TUNING_UP" data-code="0x09"
+            class="btn-remote rounded-lg py-2 flex flex-col items-center justify-center text-sky-300">
+            <span class="text-xs font-bold leading-none">+</span>
+            <span class="text-[9px] mt-0.5">TUNING</span>
+          </button>
+        </div>
+
+        <!-- Tuner / Play Mode Utility Row -->
+        <div class="grid grid-cols-4 gap-1.5">
+          <button type="button" data-cmd="PLAY_MODE" data-code="0x1D"
+            class="btn-remote rounded-lg py-1.5 text-[9px] font-semibold text-slate-300 leading-tight">
+            PLAY/TUN<br>MODE
+          </button>
+          <button type="button" data-cmd="REPEAT" data-code="0x2C"
+            class="btn-remote rounded-lg py-1.5 text-[9px] font-semibold text-slate-300 leading-tight">
+            REPEAT/<br>FM MODE
+          </button>
+          <button type="button" data-cmd="TUNER_MEM" data-code="0x0E"
+            class="btn-remote rounded-lg py-1.5 text-[9px] font-semibold text-slate-300 leading-tight">
+            TUNER<br>MEMORY
+          </button>
+          <button type="button" data-cmd="ENTER" data-code="0x0B"
+            class="btn-remote btn-accent rounded-lg py-1.5 text-[10px] font-bold text-white">
+            ENTER
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 5: Volume & Sound / EQ Controls (Always Visible) -->
+      <div class="grid grid-cols-12 gap-2 items-stretch">
+        <!-- Left: Audio & EQ Stack -->
+        <div class="col-span-7 grid grid-cols-2 gap-2">
+          <button type="button" data-cmd="EQ" data-code="0x40"
+            class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-sky-300">
+            <span class="text-xs font-bold">EQ</span>
+            <span class="text-[9px] text-slate-400">ECUALIZADOR</span>
+          </button>
+          <button type="button" data-cmd="GROOVE" data-code="0x41"
+            class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-amber-300">
+            <span class="text-xs font-bold">GROOVE</span>
+            <span class="text-[9px] text-slate-400">BAJOS</span>
+          </button>
+          <button type="button" data-cmd="SURROUND" data-code="0x42"
+            class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-slate-200">
+            <span class="text-[11px] font-bold">SURROUND</span>
+            <span class="text-[9px] text-slate-400">EFECTO</span>
+          </button>
+          <button type="button" data-cmd="MUTE" data-code="0x14"
+            class="btn-remote rounded-xl py-2.5 px-2 flex flex-col items-center justify-center text-rose-300">
+            <span class="text-[11px] font-bold">MUTING</span>
+            <span class="text-[9px] text-slate-400">SILENCIO</span>
+          </button>
+        </div>
+
+        <!-- Right: Vertical Volume Rocker (Sony RM-AMU006 Tactile Dot on +) -->
+        <div class="col-span-5 flex flex-col gap-2">
+          <button type="button" data-cmd="VOL_UP" data-code="0x12"
+            class="btn-remote flex-1 rounded-xl py-2 flex flex-col items-center justify-center text-white relative">
+            <span class="w-1.5 h-1.5 rounded-full bg-sky-400 mb-0.5" title="Punto táctil"></span>
+            <span class="text-base font-bold leading-none">+</span>
+            <span class="text-[10px] font-bold tracking-wide mt-0.5">VOL</span>
+          </button>
+          <button type="button" data-cmd="VOL_DOWN" data-code="0x13"
+            class="btn-remote flex-1 rounded-xl py-2 flex flex-col items-center justify-center text-slate-200">
+            <span class="text-[10px] font-bold tracking-wide">VOL</span>
+            <span class="text-base font-bold leading-none mt-0.5">−</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Telemetry & Wi-Fi Config Bar -->
+      <div class="mt-4 pt-3 border-t border-slate-800/90 flex items-center justify-between gap-2 text-[11px]">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+          <span id="telemetry-log" class="font-mono text-slate-400 truncate">
+            Listo · Esperando comando
+          </span>
+        </div>
+        <button id="open-wifi-modal" type="button"
+          class="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium transition-colors">
+          Config. Red
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wi-Fi Bridge Configuration Modal -->
+  <div id="wifi-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-bold text-white">Puente Wi-Fi / Red Local</h2>
+        <button id="close-wifi-modal" type="button" class="text-slate-400 hover:text-white text-lg leading-none">✕</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-3">
+        Configura la IP local de tu receptor Wi-Fi a IR (ej. ESP32 o Broadlink) para enviar comandos por red local cuando no uses el infrarrojo del teléfono.
+      </p>
+      <div class="space-y-3 mb-4">
+        <div>
+          <label for="wifi-ip-input" class="block text-xs font-medium text-slate-300 mb-1">Dirección IP del Puente</label>
+          <input id="wifi-ip-input" type="text" value="192.168.1.50"
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm font-mono text-sky-300 focus:outline-none focus:border-sky-500" />
+        </div>
+        <div>
+          <label for="wifi-port-input" class="block text-xs font-medium text-slate-300 mb-1">Puerto HTTP / WebSocket</label>
+          <input id="wifi-port-input" type="text" value="8080"
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm font-mono text-sky-300 focus:outline-none focus:border-sky-500" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button id="cancel-wifi-btn" type="button"
+          class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">
+          Cancelar
+        </button>
+        <button id="save-wifi-btn" type="button"
+          class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white">
+          Guardar y Activar Wi-Fi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      power: true,
+      connMode: 'IR', // 'IR' | 'WIFI'
+      source: 'TUNER', // 'TUNER' | 'AUDIO' | 'CD' | 'USB'
+      tunerBand: 'FM', // 'FM' | 'AM'
+      fmFreq: 97.7,
+      amFreq: 1030,
+      volume: 18,
+      maxVol: 31,
+      muted: false,
+      trayOpen: false,
+      activeDisc: 1,
+      playback: 'STOP', // 'PLAY' | 'PAUSE' | 'STOP'
+      track: 1,
+      eqIndex: 0,
+      eqList: ['ROCK', 'POP', 'JAZZ', 'DANCE', 'SOUL', 'FLAT'],
+      groove: true,
+      surround: false,
+      sleepMin: 0,
+      displayMode: 0,
+      wifiIp: '192.168.1.50',
+      wifiPort: '8080'
+    };
+
+    try {
+      const saved = localStorage.getItem('sony_genezi_wifi');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.ip) state.wifiIp = parsed.ip;
+        if (parsed.port) state.wifiPort = parsed.port;
+      }
+    } catch (e) {}
+
+    const el = {
+      irLed: document.getElementById('ir-led'),
+      modeIrBtn: document.getElementById('mode-ir-btn'),
+      modeWifiBtn: document.getElementById('mode-wifi-btn'),
+      vfdConnBadge: document.getElementById('vfd-conn-badge'),
+      vfdTrayBadge: document.getElementById('vfd-tray-badge'),
+      vfdEqBadge: document.getElementById('vfd-eq-badge'),
+      vfdMain: document.getElementById('vfd-main'),
+      vfdVol: document.getElementById('vfd-vol'),
+      vfdSub: document.getElementById('vfd-sub'),
+      iconGroove: document.getElementById('icon-groove'),
+      iconSleep: document.getElementById('icon-sleep'),
+      telemetryLog: document.getElementById('telemetry-log'),
+      powerBtn: document.querySelector('[data-cmd="POWER"]'),
+      srcTuner: document.getElementById('src-tuner'),
+      srcAudio: document.getElementById('src-audio'),
+      srcCd: document.getElementById('src-cd'),
+      srcUsb: document.getElementById('src-usb'),
+      wifiModal: document.getElementById('wifi-modal'),
+      wifiIpInput: document.getElementById('wifi-ip-input'),
+      wifiPortInput: document.getElementById('wifi-port-input')
+    };
+
+    let ledTimer = null;
+
+    function pulseEmitter() {
+      clearTimeout(ledTimer);
+      el.irLed.classList.remove('firing-ir', 'firing-wifi');
+      void el.irLed.offsetWidth;
+      el.irLed.classList.add(state.connMode === 'IR' ? 'firing-ir' : 'firing-wifi');
+      ledTimer = setTimeout(() => {
+        el.irLed.classList.remove('firing-ir', 'firing-wifi');
+      }, 180);
+    }
+
+    function updateUI() {
+      // Connection mode pills
+      if (state.connMode === 'IR') {
+        el.modeIrBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all bg-rose-600 text-white shadow-sm';
+        el.modeWifiBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all text-slate-400 hover:text-slate-200';
+        el.vfdConnBadge.textContent = 'IR BLASTER';
+        el.vfdConnBadge.className = 'px-1.5 py-0.5 rounded bg-rose-950/70 text-rose-300 border border-rose-800/50 font-semibold';
+      } else {
+        el.modeWifiBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all bg-sky-600 text-white shadow-sm';
+        el.modeIrBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all text-slate-400 hover:text-slate-200';
+        el.vfdConnBadge.textContent = `WI-FI ${state.wifiIp}`;
+        el.vfdConnBadge.className = 'px-1.5 py-0.5 rounded bg-sky-950/70 text-sky-300 border border-sky-800/50 font-semibold';
+      }
+
+      // Power button state
+      el.powerBtn.classList.toggle('is-on', state.power);
+
+      // Source button highlights
+      [el.srcTuner, el.srcAudio, el.srcCd, el.srcUsb].forEach(b => b.classList.remove('active-source-btn'));
+      if (state.power) {
+        if (state.source === 'TUNER') el.srcTuner.classList.add('active-source-btn');
+        if (state.source === 'AUDIO') el.srcAudio.classList.add('active-source-btn');
+        if (state.source === 'CD') el.srcCd.classList.add('active-source-btn');
+        if (state.source === 'USB') el.srcUsb.classList.add('active-source-btn');
+      }
+
+      // Tray badge
+      el.vfdTrayBadge.classList.toggle('hidden', !state.trayOpen);
+
+      // VFD Screen content
+      if (!state.power) {
+        el.vfdMain.textContent = 'STANDBY';
+        el.vfdMain.className = 'text-lg sm:text-xl font-bold tracking-wider vfd-glow-red truncate';
+        el.vfdVol.textContent = '--';
+        el.vfdSub.textContent = 'EQUIPO APAGADO · PULSA POWER';
+        el.vfdEqBadge.textContent = 'EQ: --';
+        el.iconGroove.className = 'text-slate-700';
+        el.iconSleep.className = 'text-slate-700';
+        return;
+      }
+
+      el.vfdMain.className = 'text-lg sm:text-xl font-bold tracking-wider vfd-glow-cyan truncate';
+      el.vfdEqBadge.textContent = `EQ: ${state.eqList[state.eqIndex]}${state.surround ? ' · SURR' : ''}`;
+      el.iconGroove.className = state.groove ? 'text-amber-400' : 'text-slate-600';
+      el.iconSleep.className = state.sleepMin > 0 ? 'text-sky-400' : 'text-slate-600';
+      el.iconSleep.textContent = state.sleepMin > 0 ? `SLEEP ${state.sleepMin}m` : 'SLEEP';
+
+      if (state.muted) {
+        el.vfdVol.textContent = 'MUTING';
+        el.vfdVol.className = 'text-sm font-bold vfd-glow-red ml-2 shrink-0';
+      } else {
+        el.vfdVol.textContent = state.volume >= state.maxVol ? 'VOL MAX' : `VOL ${String(state.volume).padStart(2, '0')}`;
+        el.vfdVol.className = 'text-sm font-bold vfd-glow-amber ml-2 shrink-0';
+      }
+
+      if (state.trayOpen) {
+        el.vfdMain.textContent = 'OPEN · BANDEJA';
+        el.vfdSub.textContent = `CHAROLA ABIERTA · DISCO ${state.activeDisc}`;
+      } else if (state.source === 'TUNER') {
+        const freqStr = state.tunerBand === 'FM'
+          ? `${state.fmFreq.toFixed(1)} MHz`
+          : `${state.amFreq} kHz`;
+        el.vfdMain.textContent = `TUNER ${state.tunerBand} ${freqStr}`;
+        el.vfdSub.textContent = state.displayMode === 0 ? 'STEREO · SINTONIZADOR LISTO' : 'PRESET CH 01 · MHC-GTX88';
+      } else if (state.source === 'CD') {
+        const playLabel = state.playback === 'PLAY' ? '▶ PLAY' : state.playback === 'PAUSE' ? '⏸ PAUSE' : '■ STOP';
+        el.vfdMain.textContent = `CD DISC ${state.activeDisc} · TRK ${String(state.track).padStart(2, '0')}`;
+        el.vfdSub.textContent = `${playLabel} · BANDEJA DE 3 DISCOS`;
+      } else if (state.source === 'USB') {
+        const playLabel = state.playback === 'PLAY' ? '▶ PLAY' : state.playback === 'PAUSE' ? '⏸ PAUSE' : '■ STOP';
+        el.vfdMain.textContent = `USB MP3 · TRACK ${String(state.track).padStart(2, '0')}`;
+        el.vfdSub.textContent = `${playLabel} · MEMORIA USB`;
+      } else {
+        el.vfdMain.textContent = 'AUDIO IN (AUX)';
+        el.vfdSub.textContent = 'ENTRADA DE AUDIO EXTERNA';
+      }
+    }
+
+    function sendCommand(cmd, hexCode) {
+      pulseEmitter();
+      if (navigator.vibrate) {
+        try { navigator.vibrate(18); } catch (e) {}
+      }
+
+      // Factory Pre-Loaded Sony SIRC Table (RM-AMU006 / MHC-GTX88 - No Physical Remote Needed)
+      const SIRC_MAP = {
+        POWER:       { bits: 12, addr: 0x10, cmd: 0x15 },
+        VOL_UP:      { bits: 12, addr: 0x10, cmd: 0x12 },
+        VOL_DOWN:    { bits: 12, addr: 0x10, cmd: 0x13 },
+        MUTE:        { bits: 12, addr: 0x10, cmd: 0x14 },
+        OPEN_CLOSE:  { bits: 12, addr: 0x11, cmd: 0x16 },
+        TUNER_BAND:  { bits: 12, addr: 0x10, cmd: 0x21 },
+        AUDIO_IN:    { bits: 15, addr: 0x90, cmd: 0x69 },
+        CD:          { bits: 12, addr: 0x10, cmd: 0x25 },
+        USB:         { bits: 15, addr: 0x90, cmd: 0x42 },
+        DISC_1:      { bits: 12, addr: 0x11, cmd: 0x50 },
+        DISC_2:      { bits: 12, addr: 0x11, cmd: 0x51 },
+        DISC_3:      { bits: 12, addr: 0x11, cmd: 0x52 },
+        DISC_SKIP:   { bits: 12, addr: 0x11, cmd: 0x3E },
+        PLAY:        { bits: 12, addr: 0x11, cmd: 0x32 },
+        PAUSE:       { bits: 12, addr: 0x11, cmd: 0x39 },
+        STOP:        { bits: 12, addr: 0x11, cmd: 0x38 },
+        NEXT:        { bits: 12, addr: 0x11, cmd: 0x31 },
+        PREV:        { bits: 12, addr: 0x11, cmd: 0x30 },
+        REW:         { bits: 12, addr: 0x11, cmd: 0x33 },
+        FF:          { bits: 12, addr: 0x11, cmd: 0x34 },
+        TUNING_UP:   { bits: 12, addr: 0x0D, cmd: 0x09 },
+        TUNING_DOWN: { bits: 12, addr: 0x0D, cmd: 0x0A },
+        PLAY_MODE:   { bits: 12, addr: 0x11, cmd: 0x1D },
+        REPEAT:      { bits: 12, addr: 0x11, cmd: 0x2C },
+        TUNER_MEM:   { bits: 12, addr: 0x0D, cmd: 0x0E },
+        ENTER:       { bits: 12, addr: 0x10, cmd: 0x0B },
+        EQ:          { bits: 12, addr: 0x10, cmd: 0x40 },
+        GROOVE:      { bits: 15, addr: 0x90, cmd: 0x71 },
+        SURROUND:    { bits: 12, addr: 0x10, cmd: 0x42 },
+        SLEEP:       { bits: 12, addr: 0x10, cmd: 0x36 },
+        DISPLAY:     { bits: 12, addr: 0x10, cmd: 0x3A }
+      };
+
+      const entry = SIRC_MAP[cmd] || { bits: 12, addr: 0x10, cmd: parseInt(hexCode, 16) || 0x15 };
+      let nativeSent = false;
+      if (state.connMode === 'IR' && window.AndroidIR && typeof window.AndroidIR.transmitSonySirc === 'function') {
+        try {
+          window.AndroidIR.transmitSonySirc(entry.bits, entry.addr, entry.cmd);
+          nativeSent = true;
+        } catch (err) {}
+      } else if (state.connMode === 'WIFI' && window.AndroidIR && typeof window.AndroidIR.sendWifiCommand === 'function') {
+        try {
+          window.AndroidIR.sendWifiCommand(state.wifiIp, state.wifiPort, cmd, entry.bits, entry.addr, entry.cmd);
+          nativeSent = true;
+        } catch (err) {}
+      }
+
+      const addrHex = '0x' + entry.addr.toString(16).toUpperCase().padStart(2, '0');
+      const cmdHex = '0x' + entry.cmd.toString(16).toUpperCase().padStart(2, '0');
+      const proto = state.connMode === 'IR'
+        ? `SIRC-${entry.bits} [${addrHex}:${cmdHex}] ${nativeSent ? '· IR ENVIADO' : '· PRECARGADO'}`
+        : `Wi-Fi → ${state.wifiIp}:${state.wifiPort}/ir?cmd=${cmd}`;
+      el.telemetryLog.textContent = `${cmd} · ${proto}`;
+
+      if (cmd === 'POWER') {
+        state.power = !state.power;
+        if (!state.power) state.trayOpen = false;
+        updateUI();
+        return;
+      }
+
+      if (!state.power) {
+        updateUI();
+        return;
+      }
+
+      switch (cmd) {
+        case 'OPEN_CLOSE':
+          state.trayOpen = !state.trayOpen;
+          if (state.trayOpen) state.playback = 'STOP';
+          break;
+        case 'TUNER_BAND':
+          state.trayOpen = false;
+          if (state.source === 'TUNER') {
+            state.tunerBand = state.tunerBand === 'FM' ? 'AM' : 'FM';
+          } else {
+            state.source = 'TUNER';
+          }
+          break;
+        case 'AUDIO_IN':
+          state.trayOpen = false;
+          state.source = 'AUDIO';
+          break;
+        case 'CD':
+          state.trayOpen = false;
+          state.source = 'CD';
+          break;
+        case 'USB':
+          state.trayOpen = false;
+          state.source = 'USB';
+          break;
+        case 'DISC_1':
+        case 'DISC_2':
+        case 'DISC_3':
+          state.trayOpen = false;
+          state.source = 'CD';
+          state.activeDisc = Number(cmd.split('_')[1]);
+          state.track = 1;
+          state.playback = 'PLAY';
+          break;
+        case 'DISC_SKIP':
+          state.trayOpen = false;
+          state.source = 'CD';
+          state.activeDisc = (state.activeDisc % 3) + 1;
+          state.track = 1;
+          break;
+        case 'PLAY':
+          state.trayOpen = false;
+          if (state.source === 'TUNER' || state.source === 'AUDIO') state.source = 'CD';
+          state.playback = 'PLAY';
+          break;
+        case 'PAUSE':
+          if (state.playback === 'PLAY') state.playback = 'PAUSE';
+          else if (state.playback === 'PAUSE') state.playback = 'PLAY';
+          break;
+        case 'STOP':
+          state.playback = 'STOP';
+          break;
+        case 'NEXT':
+          if (state.source === 'TUNER') {
+            if (state.tunerBand === 'FM') state.fmFreq = Math.min(108.0, +(state.fmFreq + 0.2).toFixed(1));
+            else state.amFreq = Math.min(1710, state.amFreq + 10);
+          } else {
+            state.track = Math.min(99, state.track + 1);
+          }
+          break;
+        case 'PREV':
+          if (state.source === 'TUNER') {
+            if (state.tunerBand === 'FM') state.fmFreq = Math.max(87.5, +(state.fmFreq - 0.2).toFixed(1));
+            else state.amFreq = Math.max(530, state.amFreq - 10);
+          } else {
+            state.track = Math.max(1, state.track - 1);
+          }
+          break;
+        case 'TUNING_UP':
+          state.source = 'TUNER';
+          if (state.tunerBand === 'FM') state.fmFreq = state.fmFreq >= 108.0 ? 87.5 : +(state.fmFreq + 0.1).toFixed(1);
+          else state.amFreq = state.amFreq >= 1710 ? 530 : state.amFreq + 10;
+          break;
+        case 'TUNING_DOWN':
+          state.source = 'TUNER';
+          if (state.tunerBand === 'FM') state.fmFreq = state.fmFreq <= 87.5 ? 108.0 : +(state.fmFreq - 0.1).toFixed(1);
+          else state.amFreq = state.amFreq <= 530 ? 1710 : state.amFreq - 10;
+          break;
+        case 'VOL_UP':
+          state.muted = false;
+          state.volume = Math.min(state.maxVol, state.volume + 1);
+          break;
+        case 'VOL_DOWN':
+          state.muted = false;
+          state.volume = Math.max(0, state.volume - 1);
+          break;
+        case 'MUTE':
+          state.muted = !state.muted;
+          break;
+        case 'EQ':
+          state.eqIndex = (state.eqIndex + 1) % state.eqList.length;
+          break;
+        case 'GROOVE':
+          state.groove = !state.groove;
+          break;
+        case 'SURROUND':
+          state.surround = !state.surround;
+          break;
+        case 'SLEEP':
+          const steps = [0, 10, 20, 30, 60, 90];
+          state.sleepMin = steps[(steps.indexOf(state.sleepMin) + 1) % steps.length];
+          break;
+        case 'DISPLAY':
+          state.displayMode = (state.displayMode + 1) % 2;
+          break;
+        default:
+          break;
+      }
+
+      updateUI();
+    }
+
+    // Bind all remote buttons
+    document.querySelectorAll('[data-cmd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sendCommand(btn.dataset.cmd, btn.dataset.code || '0x00');
+      });
+    });
+
+    // Mode toggle
+    el.modeIrBtn.addEventListener('click', () => {
+      state.connMode = 'IR';
+      el.telemetryLog.textContent = 'Modo infrarrojo (IR Blaster) activo';
+      updateUI();
+    });
+
+    el.modeWifiBtn.addEventListener('click', () => {
+      state.connMode = 'WIFI';
+      el.telemetryLog.textContent = `Modo Wi-Fi (${state.wifiIp}:${state.wifiPort}) activo`;
+      updateUI();
+    });
+
+    // Wi-Fi modal handlers
+    document.getElementById('open-wifi-modal').addEventListener('click', () => {
+      el.wifiIpInput.value = state.wifiIp;
+      el.wifiPortInput.value = state.wifiPort;
+      el.wifiModal.classList.remove('hidden');
+    });
+
+    function closeWifiModal() {
+      el.wifiModal.classList.add('hidden');
+    }
+
+    document.getElementById('close-wifi-modal').addEventListener('click', closeWifiModal);
+    document.getElementById('cancel-wifi-btn').addEventListener('click', closeWifiModal);
+
+    document.getElementById('save-wifi-btn').addEventListener('click', () => {
+      const ip = el.wifiIpInput.value.trim() || '192.168.1.50';
+      const port = el.wifiPortInput.value.trim() || '8080';
+      state.wifiIp = ip;
+      state.wifiPort = port;
+      state.connMode = 'WIFI';
+      try {
+        localStorage.setItem('sony_genezi_wifi', JSON.stringify({ ip, port }));
+      } catch (e) {}
+      el.telemetryLog.textContent = `Red guardada: ${ip}:${port}`;
+      closeWifiModal();
+      updateUI();
+    });
+
+    // Initialize UI
+    updateUI();
+  </script>
+</body>
+</html>
